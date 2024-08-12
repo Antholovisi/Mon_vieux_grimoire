@@ -6,8 +6,6 @@ module.exports = (req, res, next) => {
         const token = req.headers.authorization.split(' ')[1];
         // La méthode jwt.verify() renvoie les données décodées du token si le token est valide
         const decodedToken = jwt.verify(token, 'RANDOM_TOKEN_SECRET');
-        // Affiche le token décodé dans la console pour le débogage
-        console.log('Decoded Token:', decodedToken);
         // Extraction de l'ID utilisateur des données décodées du token
         const userId = decodedToken.userId;
         // Ajout de l'ID utilisateur aux propriétés de la requête pour un accès ultérieur
