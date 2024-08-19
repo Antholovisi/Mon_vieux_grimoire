@@ -112,7 +112,6 @@ exports.updateBook = async (req, res, next) => {
     }
 };
 
-
 // Suppression d'un livre
 exports.deleteBook = async (req, res, next) => {
     try {

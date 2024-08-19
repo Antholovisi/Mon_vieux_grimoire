@@ -1,11 +1,12 @@
 const jwt = require('jsonwebtoken'); // Importation du module jsonwebtoken pour la gestion des tokens JWT
+require('dotenv').config({ path: ".env" });
 
 module.exports = (req, res, next) => {
     try {
         // Extraction du token de l'en-tête Authorization de la requête, envoye TOKEN sous forme de BEARER
         const token = req.headers.authorization.split(' ')[1];
         // La méthode jwt.verify() renvoie les données décodées du token si le token est valide
-        const decodedToken = jwt.verify(token, 'RANDOM_TOKEN_SECRET');
+        const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
         // Extraction de l'ID utilisateur des données décodées du token
         const userId = decodedToken.userId;
         // Ajout de l'ID utilisateur aux propriétés de la requête pour un accès ultérieur

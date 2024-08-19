@@ -5,7 +5,7 @@ require('dotenv').config({ path: ".env" }); // Chargement des variables d'enviro
 
 // Inscription d'un nouvel utilisateur
 exports.signUp = (req, res, next) => {
-    console.log('SignUp request received:', req.body);
+
     // Hachage du mot de passe de l'utilisateur avant de l'enregistrer dans la base de données
     bcrypt.hash(req.body.password, 10)
         .then(hash => {
