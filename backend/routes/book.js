@@ -6,7 +6,6 @@ const multer = require('../middleware/multer-config');
 
 // Routes pour les livres
 
-
 router.post('/', auth, multer, bookCtrl.createBook); // Route pour créer un nouveau livre
 
 router.put('/:id', auth, multer, bookCtrl.updateBook); // Route pour modifier un livre existant
@@ -20,7 +19,6 @@ router.get('/:id', bookCtrl.getOneBook); // Route pour obtenir les détails d'un
 router.get('/', bookCtrl.getAllBooks); // Route pour obtenir la liste de tous les livres
 
 router.post('/:id/rating', auth, bookCtrl.rateBook); // Route pour noter un livre
-
 
 // Exportation du routeur
 module.exports = router;

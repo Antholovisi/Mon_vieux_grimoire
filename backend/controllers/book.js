@@ -6,39 +6,55 @@ const Book = require('../models/book');
 // Creer un livre
 exports.createBook = async (req, res, next) => {
     try {
+        // Récupère les données du livre envoyées dans la requête et les convertit de JSON en objet JavaScript.
         const bookObject = JSON.parse(req.body.book);
+
+        // Supprime les propriétés _id et _userId pour éviter les modifications non souhaitées.
         delete bookObject._id;
         delete bookObject._userId;
 
+        // Vérifie si un fichier a été téléchargé avec la requête.
         const file = req.file;
         if (!file) {
+            // Si aucun fichier n'est fourni, renvoie une réponse avec un statut 400 (Bad Request).
             return res.status(400).json({ message: 'Aucun fichier fourni' });
         }
 
+        // Remplace les espaces dans le nom de l'auteur par des underscores pour le nom du fichier d'image.
         const imageAuthor = bookObject.author.replace(/\s+/g, '_');
+        // Remplace les espaces dans le titre du livre par des underscores pour le nom du fichier d'image.
         const imageTitle = bookObject.title.replace(/\s+/g, '_');
+        // Génère un nom unique pour le fichier redimensionné en incluant le titre, l'auteur, l'année et un timestamp.
         const resizedFileName = `${imageTitle}_${imageAuthor}_${bookObject.year}_${Date.now()}${path.extname(file.path)}`;
+        // Crée un chemin complet pour l'image redimensionnée en utilisant le dossier 'images'.
         const resizedFilePath = path.join('images', resizedFileName);
 
+        // Affiche des informations de débogage sur le chemin du fichier d'origine et du fichier redimensionné.
         console.log(`Chemin du fichier original: ${file.path}`);
         console.log(`Nom du fichier redimensionné: ${resizedFileName}`);
         console.log(`Chemin du fichier redimensionné: ${resizedFilePath}`);
 
+        // Crée une nouvelle instance du modèle Book avec les données du livre et l'URL de l'image redimensionnée.
         const book = new Book({
-            ...bookObject,
-            userId: req.auth.userId,
-            imageUrl: `${req.protocol}://${req.get('host')}/images/${resizedFileName}`
+            ...bookObject, // Les autres propriétés du livre (titre, auteur, etc.)
+            userId: req.auth.userId, // Associe le livre à l'utilisateur qui l'a créé (extrait du token JWT).
+            imageUrl: `${req.protocol}://${req.get('host')}/images/${resizedFileName}` // Génère l'URL de l'image redimensionnée.
         });
 
+        // Sauvegarde le livre dans la base de données.
         await book.save();
         console.log('Livre sauvegardé avec succès.');
+
+        // Désactive la mise en cache pour Sharp (ceci est facultatif et peut être omis selon vos besoins).
         sharp.cache(false);
 
+        // Utilise Sharp pour redimensionner l'image téléchargée aux dimensions 500x800 pixels et la sauvegarde avec le nouveau nom.
         await sharp(file.path)
             .resize(500, 800)
             .toFile(resizedFilePath);
         console.log('Image redimensionnée avec succès.');
 
+        // Tente de supprimer le fichier original après redimensionnement.
         try {
             await fs.unlink(file.path);
             console.log('Fichier original supprimé avec succès.');
@@ -46,8 +62,10 @@ exports.createBook = async (req, res, next) => {
             console.error('Erreur lors de la suppression du fichier original:', err);
         }
 
+        // Renvoie une réponse avec un statut 201 (Created) et un message de succès.
         res.status(201).json({ message: 'Objet enregistré !' });
     } catch (error) {
+        // Capture les erreurs éventuelles, les affiche dans la console, et renvoie une réponse avec un statut 400 (Bad Request).
         console.error('Erreur lors de la création du livre:', error.message);
         res.status(400).json({ message: 'Une erreur est survenue' });
     }
@@ -56,33 +74,39 @@ exports.createBook = async (req, res, next) => {
 // Modification d'un livre existant
 exports.updateBook = async (req, res, next) => {
     try {
+        // Recherche le livre par ID dans la base de données
         const book = await Book.findOne({ _id: req.params.id });
 
+        // Vérifie si l'utilisateur actuel est autorisé à modifier ce livre
         if (book.userId !== req.auth.userId) {
-            return res.status(403).json({ message: 'Non-autorisé' });
+            return res.status(403).json({ message: 'Non-autorisé' }); // Retourne une erreur si l'utilisateur n'est pas autorisé
         }
 
+        // Si un nouveau fichier (image) est fourni, on met à jour l'objet du livre avec la nouvelle image
         const bookObject = req.file ? {
-            ...JSON.parse(req.body.book),
-            imageUrl: `${req.protocol}://${req.get('host')}/images/${req.file.filename}`
-        } : { ...req.body };
+            ...JSON.parse(req.body.book), // Transforme la chaîne JSON en objet
+            imageUrl: `${req.protocol}://${req.get('host')}/images/${req.file.filename}` // Génère l'URL de la nouvelle image
+        } : { ...req.body }; // Sinon, on utilise simplement les données du corps de la requête
 
-        delete bookObject._userId;
+        delete bookObject._userId; // Supprime l'ID utilisateur pour éviter qu'il ne soit modifié
 
+        // Si une nouvelle image est fournie, on effectue les opérations suivantes
         if (req.file) {
-            const originalFilePath = req.file.path;
+            const originalFilePath = req.file.path; // Chemin du fichier original
 
+            // Génération du nom de fichier redimensionné en remplaçant les espaces par des underscores
             const imageAuthor = bookObject.author.replace(/\s+/g, '_');
             const imageTitle = bookObject.title.replace(/\s+/g, '_');
             const resizedFileName = `${imageTitle}_${imageAuthor}_${bookObject.year}_${Date.now()}${path.extname(originalFilePath)}`;
-            const resizedFilePath = path.join('images', resizedFileName);
+            const resizedFilePath = path.join('images', resizedFileName); // Chemin du fichier redimensionné
 
+            // Redimensionne l'image à 500x800 pixels
             await sharp(originalFilePath)
                 .resize(500, 800)
                 .toFile(resizedFilePath);
-
             console.log('Image redimensionnée avec succès.');
 
+            // Supprime le fichier original après redimensionnement
             try {
                 await fs.unlink(originalFilePath);
                 console.log('Fichier original supprimé avec succès.');
@@ -90,9 +114,10 @@ exports.updateBook = async (req, res, next) => {
                 console.error('Erreur lors de la suppression du fichier original:', err);
             }
 
+            // Supprime l'ancienne image associée au livre
             if (book.imageUrl) {
-                const oldFilename = book.imageUrl.split('/images/')[1];
-                const oldFilePath = path.join('images', oldFilename);
+                const oldFilename = book.imageUrl.split('/images/')[1]; // Extrait le nom de l'ancienne image
+                const oldFilePath = path.join('images', oldFilename); // Chemin de l'ancienne image
                 try {
                     await fs.unlink(oldFilePath);
                     console.log('Ancienne image supprimée avec succès.');
@@ -101,12 +126,15 @@ exports.updateBook = async (req, res, next) => {
                 }
             }
 
+            // Met à jour l'URL de l'image du livre dans l'objet du livre
             bookObject.imageUrl = `${req.protocol}://${req.get('host')}/images/${resizedFileName}`;
         }
 
+        // Met à jour les informations du livre dans la base de données
         await Book.updateOne({ _id: req.params.id }, { ...bookObject, _id: req.params.id });
         res.status(200).json({ message: 'Objet modifié avec succès !' });
     } catch (error) {
+        // Gestion des erreurs lors de la mise à jour du livre
         console.error('Erreur lors de la mise à jour du livre:', error);
         res.status(500).json({ error });
     }
@@ -115,28 +143,34 @@ exports.updateBook = async (req, res, next) => {
 // Suppression d'un livre
 exports.deleteBook = async (req, res, next) => {
     try {
+        // Recherche le livre par ID dans la base de données
         const book = await Book.findOne({ _id: req.params.id });
 
+        // Vérifie si l'utilisateur actuel est autorisé à supprimer ce livre
         if (book.userId !== req.auth.userId) {
-            return res.status(403).json({ message: 'Non-autorisé' });
+            return res.status(403).json({ message: 'Non-autorisé' }); // Retourne une erreur si l'utilisateur n'est pas autorisé
         }
 
+        // Extrait le nom de l'image à partir de l'URL de l'image du livre
         const filename = book.imageUrl.split('/images/')[1];
-        const filePath = path.join('images', `${filename}`);
+        const filePath = path.join('images', `${filename}`); // Génère le chemin complet du fichier image
 
-        // Supprimer l'image redimensionnée
+        // Supprime l'image redimensionnée associée au livre
         fs.unlink(filePath, (err) => {
             if (err) {
-                console.error('Erreur lors de la suppression de l\'image:', err);
+                console.error('Erreur lors de la suppression de l\'image:', err); // Log en cas d'erreur lors de la suppression
             }
         });
 
+        // Supprime le livre de la base de données
         await Book.deleteOne({ _id: req.params.id });
-        res.status(200).json({ message: 'Objet supprimé !' });
+        res.status(200).json({ message: 'Objet supprimé !' }); // Répond avec un message de succès si tout s'est bien passé
     } catch (error) {
-        res.status(500).json({ error });
+        // Gestion des erreurs lors de la suppression
+        res.status(500).json({ error }); // Répond avec une erreur 500 en cas de problème
     }
-}
+};
+
 // Récupération d'un livre par ID
 exports.getOneBook = (req, res, next) => {
     // Recherche du livre par ID
@@ -144,6 +178,7 @@ exports.getOneBook = (req, res, next) => {
         .then(book => res.status(200).json(book)) // Réponse avec les données du livre
         .catch(error => res.status(404).json({ error })); // Réponse en cas d'erreur
 }
+
 // Récupération de tous les livres
 exports.getAllBooks = (req, res, next) => {
     // Récupération de tous les livres
@@ -151,6 +186,7 @@ exports.getAllBooks = (req, res, next) => {
         .then(books => res.status(200).json(books)) // Réponse avec la liste des livres
         .catch(error => res.status(400).json({ error })); // Réponse en cas d'erreur
 }
+
 // Évaluation d'un livre
 exports.rateBook = (req, res, next) => {
     const id = req.params.id; // ID du livre

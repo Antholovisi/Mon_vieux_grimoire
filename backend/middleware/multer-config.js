@@ -1,5 +1,4 @@
 const multer = require('multer');
-const path = require('path');
 
 // Définitions des types MIME
 const MIME_TYPES = {
